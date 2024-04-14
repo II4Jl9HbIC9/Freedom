@@ -1,0 +1,12 @@
+[tool.black]
+include = ".*pyi?$"
+skip-magic-trailing-comma = false
+target-version = ["py38"]
+
+[tool.isort]
+profile = "black"
+force_single_line = true
+
+[tool.mypy]
+strict = true
+exclude = "__init__.py"
