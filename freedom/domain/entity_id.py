@@ -57,6 +57,6 @@ class EntityIdSequential(EntityId):
     @classmethod
     def next_id(cls, **kwargs: typing.Any) -> EntityIdSequential:
         next_id = kwargs.pop("next_id")
-        if isinstance(next_id, int):
-            return cls(int=next_id)
-        return cls(int=int(next_id))
+        if not isinstance(next_id, int):
+            next_id = int(next_id)
+        return cls(int=next_id)

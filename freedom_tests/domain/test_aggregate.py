@@ -43,7 +43,8 @@ from freedom.domain import event
 
 
 class TaskTitleLengthRule(business_rule.BusinessRule):
-    __slots__: typing.Sequence[str] = ("min_length", "max_length", "title",)
+    # __slots__: typing.Sequence[str] = ("min_length", "max_length", "title",)
+    # FIXME: Issues with the slots attribute when inheriting from a Value Object
 
     def __init__(self, title: str, min_length: int, max_length: int) -> None:
         self.min_length = min_length
@@ -75,9 +76,21 @@ class TaskId(entity_id.EntityIdSequential):
 
 
 class Task(aggregate.AggregateRoot[TaskId]):
-    def __init__(self, id: TaskId, title: str = "Unknown") -> None:
+    def __init__(
+        self,
+        id: TaskId,
+        title: str = "Unknown",
+        tags: typing.Collection[TagId] = (),
+        comments: typing.Collection[Comment] = (),
+    ) -> None:
         super().__init__(id=id)
         self._title = title
+        self._tags = tags
+        self._comments = comments
+
+    @property
+    def title(self) -> str:
+        return self._title
 
     def set_title(self, title: str) -> None:
         self.check_rules(bounded_title_length_rule(title))
