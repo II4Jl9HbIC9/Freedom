@@ -1,32 +1,17 @@
-# -*- coding: utf-8 -*-
-# Copyright (c) 2024 II4Jl9HbIC9
-#
-# Permission is hereby granted, free of charge, to any person obtaining
-# a copy of this software and associated documentation files (the
-# "Software"), to deal in the Software without restriction, including
-# without limitation the rights to use, copy, modify, merge, publish,
-# distribute, sublicense, and/or sell copies of the Software, and to
-# permit persons to whom the Software is furnished to do so, subject to
-# the following conditions:
-#
-# The above copyright notice and this permission notice shall be included
-# in all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 from __future__ import annotations
 
 import abc
+import asyncio
+import inspect
 import sys
 import typing
 
+from freedom import sentinel
+
 FROZEN_STR: typing.Final[str] = "__frozen__"
 UNFREEZE_ATTRS_STR: typing.Final[str] = "__unfreeze_attrs__"
+
+_T = typing.TypeVar("_T")
 
 
 def __frozen_setattr__(
@@ -55,6 +40,103 @@ def __frozen_delattr__(self: typing.Any, item: typing.Any) -> None:
         raise ImmutableObjectError("Object is immutable.")
 
     object.__delattr__(self, item)
+
+
+async def empty_coro(*_: typing.Any, **__: typing.Any) -> typing.Any:
+    pass
+
+
+def get_loop() -> asyncio.AbstractEventLoop:
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.get_event_loop_policy().get_event_loop()
+
+    return loop
+
+
+def as_completed_future(
+    result: typing.Optional[_T] = None,
+) -> asyncio.Future[typing.Optional[_T]]:
+    future = get_loop().create_future()
+    future.set_result(result)
+    return future
+
+
+def get_type_hints(
+    obj: typing.Any,
+    *,
+    subclass_of: typing.Optional[typing.Tuple[typing.Type[typing.Any], ...]] = None,
+) -> typing.Dict[str, typing.Type[typing.Any]]:
+    hints = {
+        k: (
+            v.annotation
+            if v.annotation is not inspect.Parameter.empty
+            else sentinel.NOTHING
+        )
+        for k, v in inspect.Signature.from_callable(obj).parameters.items()
+    }
+    hints.update(typing.get_type_hints(obj))
+
+    if subclass_of is not None:
+        hints = {
+            k: v
+            for k, v in hints.items()
+            if inspect.isclass(v) and issubclass(v, subclass_of)
+        }
+
+    return hints
+
+
+def unpack_unions(
+    hints: typing.Dict[str, typing.Type[typing.Any]],
+) -> typing.Dict[str, typing.Type[typing.Any]]:
+    unions = {}
+
+    def _unpack_item(
+        key: str,
+        union_value: typing.Any,
+        mapping: typing.Dict[str, typing.List[typing.Type[typing.Any]]],
+    ) -> None:
+        if key not in mapping:
+            mapping[key] = []
+
+        args = typing.get_args(union_value)
+        for arg in args:
+            if typing.get_origin(arg) is typing.Union:
+                _unpack_item(key, arg, mapping)
+
+            mapping[key].append(arg)
+
+    for k, v in hints.items():
+        if typing.get_origin(v) is typing.Union:
+            _unpack_item(k, v, unions)
+
+    hints.update(unions)
+    return hints
+
+
+def get_base_args(
+    obj: typing.Any,
+    base_type: typing.Type[typing.Any],
+) -> typing.Tuple[typing.Type[typing.Any], ...]:
+    bases = typing.cast(
+        typing.Union[typing.Tuple[typing.Type[typing.Any], ...], None],
+        getattr(obj, "__orig_bases__", None),
+    )
+    if bases is None:
+        raise AttributeError(f"Cant find orig bases in obj {obj!r}")
+
+    for base in bases:
+        if (orig := typing.get_origin(base)) is None:
+            # get_base_arg can handle only parametrized generics
+            continue
+
+        if orig is base_type:
+            args = getattr(base, "__args__", ())
+            return args
+
+    raise ValueError(f"Cant find base that matches {base_type!r}")
 
 
 class ImmutableObjectError(Exception):

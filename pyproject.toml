@@ -10,3 +10,36 @@ force_single_line = true
 [tool.mypy]
 strict = true
 exclude = "__init__.py"
+
+[tool.poetry]
+name = "Freedddom"
+version = "1.0.0a"
+description = "A toolkit for designing systems that doesn't limit your business-domain capabilities"
+authors = ["UNXMPLXXMXNT <unxmplxxmxnt@gmail.com>"]
+readme = "README.md"
+license = "MIT"
+homepage = "https://github.com/UNXMPLXXMXNT/Freedom"
+repository = "https://github.com/UNXMPLXXMXNT/Freedom"
+documentation = "https://github.com/UNXMPLXXMXNT/Freedom"
+include = []
+keywords = ["Domain Driven Design"]
+packages = [
+    { include = "freedom" },
+]
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/UNXMPLXXMXNT/Freedom/issues"
+"Documentation" = "https://github.com/UNXMPLXXMXNT/Freedom"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+typing-extensions = "^3.6.2"
+
+[tool.poetry.dev-dependencies]
+isort = "5.13.2"
+black = "24.4.2"
+mypy = "1.10.0"
+
+[build-system]
+requires = ["poetry>=1.0"]
+build-backend = "poetry.core.masonry.api"
